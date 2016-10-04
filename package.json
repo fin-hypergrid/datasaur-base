@@ -1,0 +1,19 @@
+{
+  "name": "fin-hypergrid-data-source-base",
+  "version": "0.1.0",
+  "description": "Abstract base class for Hypergrid data source modules.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openfin/fin-hypergrid-data-source-base.git"
+  },
+  "author": "Jonathan Eiten <jeiten@openfin.co> (http://openfin.co)",
+  "license": "OpenFin",
+  "bugs": {
+    "url": "https://github.com/openfin/fin-hypergrid/issues"
+  },
+  "homepage": "https://github.com/openfin/fin-hypergrid-data-source-base#readme"
+}
