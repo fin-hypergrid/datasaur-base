@@ -11,7 +11,7 @@
     "url": "git+https://github.com/openfin/fin-hypergrid-data-source-base.git"
   },
   "author": "Jonathan Eiten <jeiten@openfin.co> (http://openfin.co)",
-  "license": "OpenFin",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/openfin/fin-hypergrid/issues"
   },
