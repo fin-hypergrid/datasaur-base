@@ -23,7 +23,7 @@ DataSourceBase.prototype = {
     },
     set schema(schema) {
         if (this.dataSource) {
-            return this.dataSource.schema = schema;
+            this.dataSource.schema = schema;
         }
     },
 

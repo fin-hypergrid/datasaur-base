@@ -1,6 +1,6 @@
 {
   "name": "fin-hypergrid-data-source-base",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Abstract base class for Hypergrid data source modules.",
   "main": "index.js",
   "scripts": {
