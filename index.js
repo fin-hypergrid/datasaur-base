@@ -13,11 +13,73 @@ DataSourceBase.prototype = {
 
     DataSourceError: DataSourceError,
 
+
+    // GETTERS/SETTERS
+
     get schema() {
         if (this.dataSource) {
             return this.dataSource.schema;
         }
     },
+    set schema(schema) {
+        if (this.dataSource) {
+            return this.dataSource.schema = schema;
+        }
+    },
+
+
+    // "SET" METHODS (ALWAYS HAVE ARGS)
+
+    setSchema: function() {
+        if (this.dataSource) {
+            return this.dataSource.setSchema.apply(this.dataSource, arguments);
+        }
+    },
+
+    setData: function() {
+        if (this.dataSource) {
+            return this.dataSource.setData.apply(this.dataSource, arguments);
+        }
+    },
+
+    setValue: function() {
+        if (this.dataSource) {
+            return this.dataSource.setValue.apply(this.dataSource, arguments);
+        }
+    },
+
+
+    // "GET" METHODS WITHOUT ARGS
+
+    getSchema: function() {
+        if (this.dataSource) {
+            return this.dataSource.getSchema();
+        }
+    },
+
+    getRowCount: function() {
+        if (this.dataSource) {
+            return this.dataSource.getRowCount();
+        }
+    },
+
+    getColumnCount: function() {
+        if (this.dataSource) {
+            return this.dataSource.getColumnCount();
+        }
+    },
+
+    getGrandTotals: function() {
+        //row: Ideally this should be set and get bottom/top totals
+        //Currently this function is just sending the same for both in aggregations
+        if (this.dataSource) {
+            return this.dataSource.getGrandTotals();
+        }
+    },
+
+
+    // "GET" METHODS WITH ARGS
+
     getProperty: function getProperty(propName) {
         if (propName in this) {
             return this[propName];
@@ -27,76 +89,65 @@ DataSourceBase.prototype = {
             return getProperty.call(this.dataSource, propName);
         }
     },
-    apply: function() {
-        throw new DataSourceError('Nothing to apply.');
-    },
+
     getDataIndex: function() {
         if (this.dataSource) {
             return this.dataSource.getDataIndex.apply(this.dataSource, arguments);
         }
     },
+
     getRow: function() {
         if (this.dataSource) {
             return this.dataSource.getRow.apply(this.dataSource, arguments);
         }
     },
+
     findRow: function() {
         if (this.dataSource) {
             return this.dataSource.findRow.apply(this.dataSource, arguments);
         }
     },
+
     revealRow: function() {
         if (this.dataSource) {
             return this.dataSource.revealRow.apply(this.dataSource, arguments);
         }
     },
+
     getValue: function() {
         if (this.dataSource) {
             return this.dataSource.getValue.apply(this.dataSource, arguments);
         }
     },
-    setValue: function() {
-        if (this.dataSource) {
-            return this.dataSource.setValue.apply(this.dataSource, arguments);
-        }
-    },
-    getRowCount: function() {
-        if (this.dataSource) {
-            return this.dataSource.getRowCount.apply(this.dataSource, arguments);
-        }
-    },
-    getColumnCount: function() {
-        if (this.dataSource) {
-            return this.dataSource.getColumnCount.apply(this.dataSource, arguments);
-        }
-    },
-    getGrandTotals: function() {
-        //row: Ideally this should be set and get bottom/top totals
-        //Currently this function is just sending the same for both in aggregations
-        if (this.dataSource) {
-            return this.dataSource.getGrandTotals.apply(this.dataSource, arguments);
-        }
-    },
-    setData: function() {
-        if (this.dataSource) {
-            return this.dataSource.setData.apply(this.dataSource, arguments);
-        }
-    },
+
     click: function() {
         if (this.dataSource) {
             return this.dataSource.click.apply(this.dataSource, arguments);
         }
     },
+
+
+    // BOOLEAN METHODS (NO ARGS)
+
     isDrillDown: function() {
         if (this.dataSource) {
-            return this.dataSource.isDrillDown.apply(this.dataSource, arguments);
+            return this.dataSource.isDrillDown();
         }
     },
+
     viewMakesSense: function() {
         if (this.dataSource) {
-            return this.dataSource.viewMakesSense.apply(this.dataSource, arguments);
+            return this.dataSource.viewMakesSense();
         }
     },
+
+
+    // OTHER METHODS
+
+    apply: function() {
+        throw new DataSourceError('Nothing to apply.');
+    },
+
 
     /**
      * Get new object with name and index given the name or the index.
