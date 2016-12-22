@@ -11,6 +11,12 @@ DataSourceBase.prototype = {
 
     isNullObject: true,
 
+    drillDownCharMap: {
+        OPEN: '\u25bc', // BLACK DOWN-POINTING TRIANGLE aka '▼'
+        CLOSE: '\u25b6', // BLACK RIGHT-POINTING TRIANGLE aka '▶'
+        undefined: '' // for leaf rows
+    },
+
     DataSourceError: DataSourceError,
 
     initialize: function(dataSource) {
