@@ -201,11 +201,11 @@ DataSourceBase.prototype = {
     },
 
 
-    // BOOLEAN METHODS (NO ARGS)
+    // BOOLEAN METHODS
 
-    isDrillDown: function() {
+    isDrillDown: function(colIndex) {
         if (this.dataSource) {
-            return this.dataSource.isDrillDown();
+            return this.dataSource.isDrillDown(colIndex);
         }
     },
 
