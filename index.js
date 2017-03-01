@@ -221,9 +221,9 @@ DataSourceBase.prototype = {
         }
     },
 
-    isLeafNode: function() {
+    isLeafNode: function(y) {
         if (this.dataSource) {
-            return this.dataSource.isLeafNode();
+            return this.dataSource.isLeafNode(y);
         }
     },
 
