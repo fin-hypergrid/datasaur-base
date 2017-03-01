@@ -69,6 +69,18 @@ DataSourceBase.prototype = {
         }
     },
 
+    getFields: function() {
+        if (this.dataSource) {
+            return this.dataSource.getFields.apply(this.dataSource, arguments);
+        }
+    },
+
+    getHeaders: function() {
+        if (this.dataSource) {
+            return this.dataSource.getHeaders.apply(this.dataSource, arguments);
+        }
+    },
+
     setValue: function() {
         if (this.dataSource) {
             return this.dataSource.setValue.apply(this.dataSource, arguments);
