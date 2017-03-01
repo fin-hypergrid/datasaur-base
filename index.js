@@ -221,6 +221,12 @@ DataSourceBase.prototype = {
         }
     },
 
+    isLeafNode: function() {
+        if (this.dataSource) {
+            return this.dataSource.isLeafNode();
+        }
+    },
+
     viewMakesSense: function() {
         if (this.dataSource) {
             return this.dataSource.viewMakesSense();
