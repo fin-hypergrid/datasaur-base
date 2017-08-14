@@ -1,7 +1,7 @@
 {
   "name": "fin-hypergrid-data-source-base",
-  "version": "0.4.11",
-  "description": "Abstract base class for Hypergrid data source modules.",
+  "version": "1.0.0",
+  "description": "Base class for Hypergrid cascading \"data source\" modules.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/openfin/fin-hypergrid-data-source-base#readme",
   "dependencies": {
-    "extend-me": "^2.3"
+    "extend-me": "^2.3",
+    "pubsubstar": "^1.0.1"
   }
 }
