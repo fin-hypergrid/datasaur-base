@@ -1,6 +1,6 @@
 {
   "name": "fin-hypergrid-data-source-base",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Base class for Hypergrid cascading \"data source\" modules.",
   "main": "index.js",
   "scripts": {
@@ -8,14 +8,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/openfin/fin-hypergrid-data-source-base.git"
+    "url": "git+https://github.com/fin-hypergrid/fin-hypergrid-data-source-base.git"
   },
-  "author": "Jonathan Eiten <jeiten@openfin.co> (http://openfin.co)",
+  "author": "Jonathan Eiten",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/openfin/fin-hypergrid/issues"
+    "url": "https://github.com/fin-hypergrid/fin-hypergrid-data-source-base/issues"
   },
-  "homepage": "https://github.com/openfin/fin-hypergrid-data-source-base#readme",
+  "homepage": "https://github.com/fin-hypergrid/fin-hypergrid-data-source-base#readme",
   "dependencies": {
     "extend-me": "^2.3",
     "pubsubstar": "^1.0.1"

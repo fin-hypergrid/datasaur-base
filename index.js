@@ -5,6 +5,8 @@ function DataSourceBase() {}
 DataSourceBase.extend = require('extend-me');
 var pubsubstar = require('pubsubstar');
 
+var regexHyphenation = /[-_]\w/g;
+
 DataSourceBase.prototype = {
     constructor: DataSourceBase.prototype.constructor,
 
@@ -22,6 +24,14 @@ DataSourceBase.prototype = {
 
     initialize: function(dataSource) {
         this.dataSource = dataSource;
+    },
+
+    postInitialize: function() {
+        if (this.dataSource) {
+            this.dataSource.nextSource = this;
+        } else {
+            DataSourceBase.prototype.origin = this;
+        }
     },
 
     // GETTERS/SETTERS
@@ -49,18 +59,6 @@ DataSourceBase.prototype = {
     setData: function() {
         if (this.dataSource) {
             return this.dataSource.setData.apply(this.dataSource, arguments);
-        }
-    },
-
-    getFields: function() {
-        if (this.dataSource) {
-            return this.dataSource.getFields.apply(this.dataSource, arguments);
-        }
-    },
-
-    getHeaders: function() {
-        if (this.dataSource) {
-            return this.dataSource.getHeaders.apply(this.dataSource, arguments);
         }
     },
 
@@ -182,23 +180,38 @@ DataSourceBase.prototype = {
 
     unsubscribe: pubsubstar.unsubscribe,
 
-    publish: function(topics, message) {
-        var results = [];
+    publish: function(topic, message) {
+        var dataSource, nextDataSourcePropertyName,
+            results = [];
 
-        for (var subscribers, dataSource = this; dataSource; dataSource = dataSource.dataSource) {
-            results.concat(pubsubstar.publish.call(this, topics, message));
+        if (!(typeof topic === 'string' && topic.indexOf('*') < 0)) {
+            throw new TypeError('DataSourceBase#publish expects topic to be a string primitive sans wildcards.');
+        }
+
+        if (this.publishDirection[topic]) {
+            dataSource = this;
+            nextDataSourcePropertyName = 'dataSource';
+        } else {
+            dataSource = this.origin;
+            nextDataSourcePropertyName = 'nextSource';
+        }
+
+        for (; dataSource; dataSource = dataSource[nextDataSourcePropertyName]) {
+            var methodName = topic.replace(regexHyphenation, toCamelCase)
+            if (typeof dataSource[methodName] === 'function') {
+                results.push(dataSource[methodName](message));
+            } else {
+                results.push(pubsubstar.publish.call(dataSource, topic, message));
+            }
         }
 
         return results;
     },
 
+    publishDirection: {}, // truthy value means call top-down; otherwise call bottom-up
 
-    // OTHER METHODS
 
-    apply: function() {
-        throw new DataSourceError('Nothing to apply.');
-    },
-
+    // DEBUGGING AIDS
 
     /**
      * Get new object with name and index given the name or the index.
@@ -255,6 +268,10 @@ DataSourceBase.prototype = {
         console.table(data);
     }
 };
+
+function toCamelCase(hyphenAndNextChar) {
+    return hyphenAndNextChar[1].toUpperCase();
+}
 
 function DataSourceError(message) {
     this.message = message;
