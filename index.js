@@ -26,14 +26,6 @@ DataSourceBase.prototype = {
         this.dataSource = dataSource;
     },
 
-    postInitialize: function() {
-        if (this.dataSource) {
-            this.dataSource.nextSource = this;
-        } else {
-            DataSourceBase.prototype.origin = this;
-        }
-    },
-
     // GETTERS/SETTERS
 
     get schema() {
@@ -181,29 +173,30 @@ DataSourceBase.prototype = {
     unsubscribe: pubsubstar.unsubscribe,
 
     publish: function(topic, message) {
-        var dataSource, nextDataSourcePropertyName,
+        var methodName = topic.replace(regexHyphenation, toCamelCase),
+            dataSources = [],
             results = [];
 
         if (!(typeof topic === 'string' && topic.indexOf('*') < 0)) {
             throw new TypeError('DataSourceBase#publish expects topic to be a string primitive sans wildcards.');
         }
 
-        if (this.publishDirection[topic]) {
-            dataSource = this;
-            nextDataSourcePropertyName = 'dataSource';
-        } else {
-            dataSource = this.origin;
-            nextDataSourcePropertyName = 'nextSource';
+        for (var dataSource = this; dataSource.dataSource; dataSource = this.dataSource) {
+            dataSources.push(dataSource);
+        }
+        dataSources.push(dataSource);
+
+        if (!this.publishDirection[topic]) {
+            dataSources.reverse();
         }
 
-        for (; dataSource; dataSource = dataSource[nextDataSourcePropertyName]) {
-            var methodName = topic.replace(regexHyphenation, toCamelCase)
+        dataSources.forEach(function(dataSource) {
             if (typeof dataSource[methodName] === 'function') {
                 results.push(dataSource[methodName](message));
             } else {
                 results.push(pubsubstar.publish.call(dataSource, topic, message));
             }
-        }
+        });
 
         return results;
     },
