@@ -26,6 +26,11 @@ DataSourceBase.prototype = {
         this.dataSource = dataSource;
     },
 
+    append: function(DataSource) {
+        return new DataSource(this);
+    },
+
+
     // GETTERS/SETTERS
 
     get schema() {
@@ -174,34 +179,38 @@ DataSourceBase.prototype = {
 
     publish: function(topic, message) {
         var methodName = topic.replace(regexHyphenation, toCamelCase),
-            dataSources = [],
-            results = [];
+            pipes = [],
+            results = []; // each element per data source is itself an array for subscriber responses
 
         if (!(typeof topic === 'string' && topic.indexOf('*') < 0)) {
             throw new TypeError('DataSourceBase#publish expects topic to be a string primitive sans wildcards.');
         }
 
-        for (var dataSource = this; dataSource.dataSource; dataSource = this.dataSource) {
-            dataSources.push(dataSource);
+        for (var pipe = this; pipe.dataSource; pipe = pipe.dataSource) {
+            pipes.push(pipe);
         }
-        dataSources.push(dataSource);
+        pipes.push(pipe);
 
-        if (!this.publishDirection[topic]) {
-            dataSources.reverse();
+        var publishTo = DataSourceBase.publishTo[topic] || 'each';
+
+        if (publishTo === 'eachReverse' || publishTo === 'findReverse') {
+            pipes.reverse();
         }
 
-        dataSources.forEach(function(dataSource) {
+        var loopMethod = publishTo === 'find' || publishTo === 'findReverse' ? 'find' : 'forEach';
+        pipes[loopMethod](function(dataSource) {
             if (typeof dataSource[methodName] === 'function') {
-                results.push(dataSource[methodName](message));
+                results.push([dataSource[methodName](message)]);
+                return true;
             } else {
-                results.push(pubsubstar.publish.call(dataSource, topic, message));
+                var values = pubsubstar.publish.call(dataSource, topic, message);
+                results.push(values);
+                return values.length > 0;
             }
         });
 
         return results;
     },
-
-    publishDirection: {}, // truthy value means call top-down; otherwise call bottom-up
 
 
     // DEBUGGING AIDS
@@ -261,6 +270,16 @@ DataSourceBase.prototype = {
         console.table(data);
     }
 };
+
+DataSourceBase.publishTo = {
+    // key: method name
+    // value: 'each' (or undefined) - applied to each data source from tip to origin
+    //        'eachReverse' - applied to each data source from origin to tip
+    //        'find' - applied to first data source with topic found from tip to origin
+    //        'findReverse' - applied to first data source with topic found from origin to tip
+    // note: Topic will always be found if defined in DataSourceBase.prototype.
+};
+
 
 function toCamelCase(hyphenAndNextChar) {
     return hyphenAndNextChar[1].toUpperCase();
