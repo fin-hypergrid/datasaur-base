@@ -1,6 +1,6 @@
 {
   "name": "fin-hypergrid-data-source-base",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Base class for Hypergrid cascading \"data source\" modules.",
   "main": "index.js",
   "scripts": {
@@ -17,7 +17,7 @@
   },
   "homepage": "https://github.com/fin-hypergrid/fin-hypergrid-data-source-base#readme",
   "dependencies": {
-    "extend-me": "^2.3",
+    "extend-me": "^2.6.0",
     "pubsubstar": "^1.0.1"
   }
 }

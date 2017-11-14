@@ -271,6 +271,19 @@ DataSourceBase.prototype = {
     }
 };
 
+DataSourceBase.postExtend = function(prototype) {
+    if (prototype.getSchema) {
+        Object.defineProperty(prototype, 'schema', {
+            get: prototype.getSchema && function() {
+                return this.getSchema();
+            },
+            set: prototype.setSchema && function(schema) {
+                this.setSchema(schema);
+            }
+        });
+    }
+};
+
 DataSourceBase.publishTo = {
     // key: method name
     // value: 'each' (or undefined) - applied to each data source from tip to origin
