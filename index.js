@@ -1,12 +1,11 @@
 'use strict';
 
-function DataSourceBase() {}
-
-DataSourceBase.extend = require('extend-me');
 var pubsubstar = require('pubsubstar');
 
-var regexHyphenation = /[-_]\w/g;
+var REGEX_HYPHENATION = /[-_]\w/g;
 
+function DataSourceBase() {}
+DataSourceBase.extend = require('extend-me');
 DataSourceBase.prototype = {
     constructor: DataSourceBase.prototype.constructor,
 
@@ -28,20 +27,6 @@ DataSourceBase.prototype = {
 
     append: function(DataSource) {
         return new DataSource(this);
-    },
-
-
-    // GETTERS/SETTERS
-
-    get schema() {
-        if (this.dataSource) {
-            return this.dataSource.schema;
-        }
-    },
-    set schema(schema) {
-        if (this.dataSource) {
-            this.dataSource.schema = schema;
-        }
     },
 
 
@@ -177,13 +162,28 @@ DataSourceBase.prototype = {
 
     unsubscribe: pubsubstar.unsubscribe,
 
+    /**
+     * For each data source:
+     * 1. Look for a method with name `topic` (hyphenated topic names are translated to camelCase).
+     * 2. If found, call it directly and return `[result]`.
+     * 3. If not found, look in next data source.
+     * 4. If never found, return `[]`.
+     * @param {string} topic - Topic string, typically hyphenated.
+     * @param {*} [message]
+     * @returns {*[]} Empty array means not handled; otherwise [0] contains handler response (may be `undefined`).
+     */
     publish: function(topic, message) {
-        var methodName = topic.replace(regexHyphenation, toCamelCase),
+        var methodName = topic.replace(REGEX_HYPHENATION, toCamelCase),
+            loopMethod = 'find',
             pipes = [],
-            results = []; // each element per data source is itself an array for subscriber responses
+            results = [];
 
-        if (!(typeof topic === 'string' && topic.indexOf('*') < 0)) {
-            throw new TypeError('DataSourceBase#publish expects topic to be a string primitive sans wildcards.');
+        if (!(typeof topic === 'string')) {
+            throw new TypeError('DataSourceBase#publish accepts string topics only.');
+        }
+
+        if (topic.indexOf('*') >= 0) {
+            throw new TypeError('DataSourceBase#publish does not accept wildcard topics.');
         }
 
         for (var pipe = this; pipe.dataSource; pipe = pipe.dataSource) {
@@ -191,21 +191,17 @@ DataSourceBase.prototype = {
         }
         pipes.push(pipe);
 
-        var publishTo = DataSourceBase.publishTo[topic] || 'each';
-
-        if (publishTo === 'eachReverse' || publishTo === 'findReverse') {
+        // apply is a special case
+        if (topic === 'apply') {
             pipes.reverse();
+            loopMethod = 'forEach';
         }
 
-        var loopMethod = publishTo === 'find' || publishTo === 'findReverse' ? 'find' : 'forEach';
+        // find data source to handle topic
         pipes[loopMethod](function(dataSource) {
             if (typeof dataSource[methodName] === 'function') {
-                results.push([dataSource[methodName](message)]);
-                return true;
-            } else {
-                var values = pubsubstar.publish.call(dataSource, topic, message);
-                results.push(values);
-                return values.length > 0;
+                results.push(dataSource[methodName](message));
+                return true; // found
             }
         });
 
@@ -221,14 +217,15 @@ DataSourceBase.prototype = {
      * @returns {{name: string, index: number}}
      */
     getColumnInfo: function(columnOrIndex) {
-        var name, index, result;
+        var name, index, result,
+            schema = this.getSchema();
 
         if (typeof columnOrIndex === 'number') {
             index = columnOrIndex;
-            name = this.schema[index].name;
+            name = schema[index].name;
         } else {
             name = columnOrIndex;
-            index = this.schema.findIndex(function(columnSchema) {
+            index = schema.findIndex(function(columnSchema) {
                 return columnSchema.name === name;
             });
         }
@@ -253,7 +250,8 @@ DataSourceBase.prototype = {
     dump: function(max) {
         max = Math.min(this.getRowCount(), max || Math.max(100, this.getRowCount()));
         var data = [];
-        var fields = this.schema ? this.schema.map(function(cs) { return cs.name; }) : this.getHeaders();
+        var schema = this.getSchema();
+        var fields = schema ? schema.map(function(cs) { return cs.name; }) : this.getHeaders();
         var cCount = this.getColumnCount();
         var viewMakesSense = this.viewMakesSense;
         for (var r = 0; r < max; r++) {
@@ -270,29 +268,6 @@ DataSourceBase.prototype = {
         console.table(data);
     }
 };
-
-DataSourceBase.postExtend = function(prototype) {
-    if (prototype.getSchema) {
-        Object.defineProperty(prototype, 'schema', {
-            get: prototype.getSchema && function() {
-                return this.getSchema();
-            },
-            set: prototype.setSchema && function(schema) {
-                this.setSchema(schema);
-            }
-        });
-    }
-};
-
-DataSourceBase.publishTo = {
-    // key: method name
-    // value: 'each' (or undefined) - applied to each data source from tip to origin
-    //        'eachReverse' - applied to each data source from origin to tip
-    //        'find' - applied to first data source with topic found from tip to origin
-    //        'findReverse' - applied to first data source with topic found from origin to tip
-    // note: Topic will always be found if defined in DataSourceBase.prototype.
-};
-
 
 function toCamelCase(hyphenAndNextChar) {
     return hyphenAndNextChar[1].toUpperCase();

@@ -1,23 +1,23 @@
 {
-  "name": "fin-hypergrid-data-source-base",
-  "version": "1.0.4",
-  "description": "Base class for Hypergrid cascading \"data source\" modules.",
+  "name": "datasaur-base",
+  "version": "2.0.0",
+  "description": "Base class for the Hypergrid cascading data source modules.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fin-hypergrid/fin-hypergrid-data-source-base.git"
+    "url": "git+https://github.com/fin-hypergrid/datasaur-base.git"
   },
   "author": "Jonathan Eiten",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/fin-hypergrid/fin-hypergrid-data-source-base/issues"
+    "url": "https://github.com/fin-hypergrid/datasaur-base/issues"
   },
-  "homepage": "https://github.com/fin-hypergrid/fin-hypergrid-data-source-base#readme",
-  "dependencies": {
-    "extend-me": "^2.6.0",
-    "pubsubstar": "^1.0.1"
+  "homepage": "https://github.com/fin-hypergrid/datasaur-base#readme",
+  "devDependencies": {
+    "fin-hypergrid-client-module-maker": "fin-hypergrid/client-module-maker#2.0.0",
+    "gulp": "^3.9.1"
   }
 }
