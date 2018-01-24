@@ -1,6 +1,6 @@
 {
   "name": "datasaur-base",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Base class for the Hypergrid cascading data source modules.",
   "main": "index.js",
   "scripts": {
@@ -17,7 +17,7 @@
   },
   "homepage": "https://github.com/fin-hypergrid/datasaur-base#readme",
   "devDependencies": {
-    "fin-hypergrid-client-module-maker": "fin-hypergrid/client-module-maker#2.0.0",
+    "fin-hypergrid-client-module-maker": "^2.2.0",
     "gulp": "^3.9.1"
   }
 }

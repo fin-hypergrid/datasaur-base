@@ -1,9 +1,5 @@
 'use strict';
 
-var pubsubstar = require('pubsubstar');
-
-var REGEX_HYPHENATION = /[-_]\w/g;
-
 function DataSourceBase() {}
 DataSourceBase.extend = require('extend-me');
 DataSourceBase.prototype = {
@@ -21,191 +17,55 @@ DataSourceBase.prototype = {
 
     DataSourceError: DataSourceError,
 
-    initialize: function(dataSource) {
-        this.dataSource = dataSource;
+    initialize: function(data, schema, options) {
+        this.permit(options && options.fallbacks);
     },
-
-    append: function(DataSource) {
-        return new DataSource(this);
-    },
-
-
-    // "SET" METHODS (ALWAYS HAVE ARGS)
-
-    setSchema: function() {
-        if (this.dataSource) {
-            return this.dataSource.setSchema.apply(this.dataSource, arguments);
-        }
-    },
-
-    setData: function() {
-        if (this.dataSource) {
-            return this.dataSource.setData.apply(this.dataSource, arguments);
-        }
-    },
-
-    setValue: function() {
-        if (this.dataSource) {
-            return this.dataSource.setValue.apply(this.dataSource, arguments);
-        }
-    },
-
-
-    // "GET" METHODS WITHOUT ARGS
-
-    getSchema: function() {
-        if (this.dataSource) {
-            return this.dataSource.getSchema();
-        }
-    },
-
-    getRowCount: function() {
-        if (this.dataSource) {
-            return this.dataSource.getRowCount();
-        }
-    },
-
-    getColumnCount: function() {
-        if (this.dataSource) {
-            return this.dataSource.getColumnCount();
-        }
-    },
-
-    getGrandTotals: function() {
-        //row: Ideally this should be set and get bottom/top totals
-        //Currently this function is just sending the same for both in aggregations
-        if (this.dataSource) {
-            return this.dataSource.getGrandTotals();
-        }
-    },
-
-
-    // "GET" METHODS WITH ARGS
-
-    getProperty: function getProperty(propName) {
-        if (propName in this) {
-            return this[propName];
-        }
-
-        if (this.dataSource) {
-            return getProperty.call(this.dataSource, propName);
-        }
-    },
-
-    getDataIndex: function() {
-        if (this.dataSource) {
-            return this.dataSource.getDataIndex.apply(this.dataSource, arguments);
-        }
-    },
-
-    getRow: function() {
-        if (this.dataSource) {
-            return this.dataSource.getRow.apply(this.dataSource, arguments);
-        }
-    },
-
-    findRow: function() {
-        if (this.dataSource) {
-            return this.dataSource.findRow.apply(this.dataSource, arguments);
-        }
-    },
-
-    revealRow: function() {
-        if (this.dataSource) {
-            return this.dataSource.revealRow.apply(this.dataSource, arguments);
-        }
-    },
-
-    getValue: function() {
-        if (this.dataSource) {
-            return this.dataSource.getValue.apply(this.dataSource, arguments);
-        }
-    },
-
-    click: function() {
-        if (this.dataSource) {
-            return this.dataSource.click.apply(this.dataSource, arguments);
-        }
-    },
-
-
-    // BOOLEAN METHODS
-
-    isDrillDown: function(colIndex) {
-        if (this.dataSource) {
-            return this.dataSource.isDrillDown(colIndex);
-        }
-    },
-
-    isDrillDownCol: function(colIndex) {
-        if (this.dataSource) {
-            return this.dataSource.isDrillDownCol(colIndex);
-        }
-    },
-
-    isLeafNode: function(y) {
-        if (this.dataSource) {
-            return this.dataSource.isLeafNode(y);
-        }
-    },
-
-    viewMakesSense: function() {
-        if (this.dataSource) {
-            return this.dataSource.viewMakesSense();
-        }
-    },
-
-
-    // PUB-SUB
-
-    subscribe: pubsubstar.subscribe,
-
-    unsubscribe: pubsubstar.unsubscribe,
 
     /**
-     * For each data source:
-     * 1. Look for a method with name `topic` (hyphenated topic names are translated to camelCase).
-     * 2. If found, call it directly and return `[result]`.
-     * 3. If not found, look in next data source.
-     * 4. If never found, return `[]`.
-     * @param {string} topic - Topic string, typically hyphenated.
-     * @param {*} [message]
-     * @returns {*[]} Empty array means not handled; otherwise [0] contains handler response (may be `undefined`).
+     * Allow methods to bubble (with optional fallback).
+     * @param {object|undefined} [fallbacks] - Hash with method:fallback members. If omitted this call is a no-op.
      */
-    publish: function(topic, message) {
-        var methodName = topic.replace(REGEX_HYPHENATION, toCamelCase),
-            loopMethod = 'find',
-            pipes = [],
-            results = [];
-
-        if (!(typeof topic === 'string')) {
-            throw new TypeError('DataSourceBase#publish accepts string topics only.');
+    permit: function(fallbacks) {
+        if (fallbacks) {
+            Object.keys(fallbacks).forEach(function(key) {
+                allowToBubble(key, fallbacks[key]);
+            });
         }
+    },
 
-        if (topic.indexOf('*') >= 0) {
-            throw new TypeError('DataSourceBase#publish does not accept wildcard topics.');
-        }
+    /**
+     * @summary Append a new "pipe" for the data source.
+     * @desc The new object becomes the tip of the data source.
+     * @param DataSourcePipe
+     * @returns {DataSource}
+     */
+    append: function(DataSourcePipe) {
+        var newTip = new DataSourcePipe();
+        newTip.dataSource = this;
+        return newTip;
+    },
 
-        for (var pipe = this; pipe.dataSource; pipe = pipe.dataSource) {
-            pipes.push(pipe);
-        }
-        pipes.push(pipe);
-
-        // apply is a special case
-        if (topic === 'apply') {
-            pipes.reverse();
-            loopMethod = 'forEach';
-        }
-
-        // find data source to handle topic
-        pipes[loopMethod](function(dataSource) {
+    /**
+     * @summary Get object that defines the method.
+     * @dsc Searches the data source for the object that owns the named method.
+     *
+     * This will be somewhere in the prototype chain of the data source.
+     * Searches each member of the data source pipeline from tip to base.
+     *
+     * Useful for overriding or deleting a method.
+     * @param string {methodName}
+     * @returns {object|undefined} The object that owns the found method or `undefined` if not found.
+     */
+    getOwnerOf: function(methodName) {
+        for (var dataSource = this; dataSource; dataSource = dataSource.dataSource) {
             if (typeof dataSource[methodName] === 'function') {
-                results.push(dataSource[methodName](message));
-                return true; // found
+                for (var object = dataSource; object; object = Object.getPrototypeOf(object)) {
+                    if (object.hasOwnProperty(methodName)) {
+                        return object;
+                    }
+                }
             }
-        });
-
-        return results;
+        }
     },
 
 
@@ -269,8 +129,55 @@ DataSourceBase.prototype = {
     }
 };
 
-function toCamelCase(hyphenAndNextChar) {
-    return hyphenAndNextChar[1].toUpperCase();
+/**
+ * Install a bubbler.
+ * @param {string} [name] -- no-op if omitted
+ * @param {interfaceExtender} [fallback] - One of:
+ * * function - An explicit fallback implementation.
+ * * `-Infinity` - No fallback; fail silently.
+ * * `Infinity` - No fallback; throw error.
+ * * otherwise - Generate a fallback function that issues a one-time "unsupported" warning and returns this value (typically `undefined` but could be anything).
+ */
+function allowToBubble(methodName, fallback) {
+    if (!methodName) {
+        return;
+    }
+
+    switch (fallback) {
+        case -Infinity:
+            fallback = undefined;
+            break;
+        case Infinity:
+            fallback = unimplementedError.bind(null, methodName);
+            break;
+        default:
+            if (typeof fallback !== 'function') {
+                fallback = unsupportedWarning.bind(null, methodName, fallback);
+            }
+    }
+
+    // Implementation note: Cannot return a bound function here instead of depending on the closure because its `this` needs to respect its execution context.
+    DataSourceBase.prototype[methodName] = function() {
+        if (this.dataSource) {
+            return this.dataSource[methodName].apply(this.dataSource, arguments);
+        } else if (fallback) {
+            return fallback.apply(null, arguments);
+        }
+    };
+}
+
+var warned = {};
+
+function unsupportedWarning(methodName, returnValue) {
+    if (!warned[methodName]) {
+        console.warn('Data source does not support `' + methodName + '()`.');
+        warned[methodName] = true;
+    }
+    return returnValue;
+}
+
+function unimplementedError(methodName) {
+    throw new DataSourceError('Expected data source to implement method `' + methodName + '()`.');
 }
 
 function DataSourceError(message) {
