@@ -5,44 +5,91 @@ DataSourceBase.extend = require('extend-me');
 DataSourceBase.prototype = {
     constructor: DataSourceBase.prototype.constructor,
 
+    $$CLASS_NAME: 'DataSourceBase',
+
     replaceIndent: '_',
 
     isNullObject: true,
 
-    drillDownCharMap: {
-        OPEN: '\u25bc', // BLACK DOWN-POINTING TRIANGLE aka '▼'
-        CLOSE: '\u25b6', // BLACK RIGHT-POINTING TRIANGLE aka '▶'
-        undefined: '' // for leaf rows
-    },
-
     DataSourceError: DataSourceError,
 
-    initialize: function(data, schema, options) {
-        this.permit(options && options.fallbacks);
-    },
+    initialize: function(dataSource) {
+        var bottomLayer = getBottomLayer(this),
+            bubbleLayer = dataSource
+                ? getBottomLayer(this.dataSource = dataSource) // reference private "bubble layer" previously injected
+                : Object.create(DataSourceBase.prototype); // inject a private "bubble layer" beneath `this` data source's prototype
 
-    /**
-     * Allow methods to bubble (with optional fallback).
-     * @param {object|undefined} [fallbacks] - Hash with method:fallback members. If omitted this call is a no-op.
-     */
-    permit: function(fallbacks) {
-        if (fallbacks) {
-            Object.keys(fallbacks).forEach(function(key) {
-                allowToBubble(key, fallbacks[key]);
-            });
+        if (bottomLayer !== bubbleLayer) {
+            Object.setPrototypeOf(bottomLayer, bubbleLayer);
         }
     },
 
     /**
-     * @summary Append a new "pipe" for the data source.
-     * @desc The new object becomes the tip of the data source.
-     * @param DataSourcePipe
-     * @returns {DataSource}
+     * Allow methods to bubble (with optional fallback).
+     * Note that `initialize` is ignored.
+     * @param {object} [iface] - Bubble each included setter and/or getter or method, calling the fallback when not handled.
+     * @param {string[]} [filter] - When defined, acts as a whitelist for items in `iface` (or a blacklist if `filter.blacklist` is truthy).
+     * @returns {number} The number of items bubbled after filter out `initialize`, whitelist/blacklist, and non-methods.
      */
-    append: function(DataSourcePipe) {
-        var newTip = new DataSourcePipe();
-        newTip.dataSource = this;
-        return newTip;
+    setInterface: function(iface, filter) {
+        var bubbled = 0;
+        Object.getOwnPropertyNames(iface).forEach(function(key) {
+            if (key === 'initialize') {
+                return;
+            }
+
+            if (filter) {
+                var listed = (filter.indexOf(key) >= 0);
+                if (!(filter.blacklist ^ listed)) {
+                    return;
+                }
+            }
+
+            var descriptor = Object.getOwnPropertyDescriptor(iface, key);
+            var newdesc = {};
+
+            if (typeof descriptor.get === 'function') {
+                newdesc.get = function() {
+                    if (this.dataSource) {
+                        return this.dataSource[key];
+                    } else {
+                        return descriptor.get();
+                    }
+                };
+            }
+
+            if (typeof descriptor.set === 'function') {
+                newdesc.set = function(arg) {
+                    if (this.dataSource) {
+                        this.dataSource[key](arg);
+                    } else {
+                        descriptor.set(arg);
+                    }
+                };
+            }
+
+            if (typeof descriptor.value === 'function') {
+                newdesc.value = function() {
+                    if (this.dataSource) {
+                        return this.dataSource[key].apply(this.dataSource, arguments);
+                    } else {
+                        return descriptor.value.apply(null, arguments);
+                    }
+                };
+            }
+
+            if (Object.keys(newdesc).length) {
+                var bubbleLayer = getBottomLayer(this);
+
+                // allow possible reconfig/removal later
+                newdesc.enumerable = newdesc.writeable = newdesc.configurable = true;
+
+                Object.defineProperty(bubbleLayer, key, newdesc);
+
+                bubbled += 1;
+            }
+        }, this);
+        return bubbled;
     },
 
     /**
@@ -129,56 +176,19 @@ DataSourceBase.prototype = {
     }
 };
 
-/**
- * Install a bubbler.
- * @param {string} [name] -- no-op if omitted
- * @param {interfaceExtender} [fallback] - One of:
- * * function - An explicit fallback implementation.
- * * `-Infinity` - No fallback; fail silently.
- * * `Infinity` - No fallback; throw error.
- * * otherwise - Generate a fallback function that issues a one-time "unsupported" warning and returns this value (typically `undefined` but could be anything).
- */
-function allowToBubble(methodName, fallback) {
-    if (!methodName) {
-        return;
+// Get the oldest ancestor class (prototype) younger than DataSourceBase (or Object)
+function getBottomLayer(prototype) {
+    do {
+        var descendant = prototype;
+        var prototype = Object.getPrototypeOf(descendant);
     }
+        while (prototype !== DataSourceBase.prototype);
 
-    switch (fallback) {
-        case -Infinity:
-            fallback = undefined;
-            break;
-        case Infinity:
-            fallback = unimplementedError.bind(null, methodName);
-            break;
-        default:
-            if (typeof fallback !== 'function') {
-                fallback = unsupportedWarning.bind(null, methodName, fallback);
-            }
-    }
-
-    // Implementation note: Cannot return a bound function here instead of depending on the closure because its `this` needs to respect its execution context.
-    DataSourceBase.prototype[methodName] = function() {
-        if (this.dataSource) {
-            return this.dataSource[methodName].apply(this.dataSource, arguments);
-        } else if (fallback) {
-            return fallback.apply(null, arguments);
-        }
-    };
+    return descendant;
 }
 
-var warned = {};
+function failSilently() {}
 
-function unsupportedWarning(methodName, returnValue) {
-    if (!warned[methodName]) {
-        console.warn('Data source does not support `' + methodName + '()`.');
-        warned[methodName] = true;
-    }
-    return returnValue;
-}
-
-function unimplementedError(methodName) {
-    throw new DataSourceError('Expected data source to implement method `' + methodName + '()`.');
-}
 
 function DataSourceError(message) {
     this.message = message;

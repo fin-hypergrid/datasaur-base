@@ -19,5 +19,8 @@
   "devDependencies": {
     "fin-hypergrid-client-module-maker": "^2.2.0",
     "gulp": "^3.9.1"
+  },
+  "dependencies": {
+    "extend-me": "^2.5.0"
   }
 }
