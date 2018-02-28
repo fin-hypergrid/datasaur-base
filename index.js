@@ -1,158 +1,90 @@
 'use strict';
 
 function DataSourceBase() {}
-DataSourceBase.extend = require('extend-me');
+
+DataSourceBase.extend = require('extend-me'); // make `extend`-able
+
 DataSourceBase.prototype = {
     constructor: DataSourceBase.prototype.constructor,
 
     $$CLASS_NAME: 'DataSourceBase',
 
-    replaceIndent: '_',
-
     isNullObject: true,
+
+    drillDownCharMap: {
+        true: '\u25bc', // BLACK DOWN-POINTING TRIANGLE aka '▼'
+        false: '\u25b6', // BLACK RIGHT-POINTING TRIANGLE aka '▶'
+        undefined: '', // leaf rows have no control glyph
+        null: '   ' // indent
+    },
 
     DataSourceError: DataSourceError,
 
-    initialize: function(dataSource) {
-        var bottomLayer = getBottomLayer(this),
-            bubbleLayer = dataSource
-                ? getBottomLayer(this.dataSource = dataSource) // reference private "bubble layer" previously injected
-                : Object.create(DataSourceBase.prototype); // inject a private "bubble layer" beneath `this` data source's prototype
-
-        if (bottomLayer !== bubbleLayer) {
-            Object.setPrototypeOf(bottomLayer, bubbleLayer);
+    initialize: function(nextDataSource, options) {
+        if (nextDataSource) {
+            this.next = nextDataSource;
         }
+
+        this.install(Object.getPrototypeOf(this));
     },
 
     /**
-     * Allow methods to bubble (with optional fallback).
-     * Note that `initialize` is ignored.
-     * @param {object} [iface] - Bubble each included setter and/or getter or method, calling the fallback when not handled.
-     * @param {string[]} [filter] - When defined, acts as a whitelist for items in `iface` (or a blacklist if `filter.blacklist` is truthy).
-     * @returns {number} The number of items bubbled after filter out `initialize`, whitelist/blacklist, and non-methods.
+     * @implements dataModelAPI#needs
+     * @see {@link https://fin-hypergrid.github.io/core/doc/dataModelAPI.html#needs|needs}
      */
-    setInterface: function(iface, filter) {
-        var bubbled = 0;
-        Object.getOwnPropertyNames(iface).forEach(function(key) {
-            if (key === 'initialize') {
+    needs: function(key) {
+        var transformer = this, source;
+        do {
+            if (transformer[key] && transformer[key] !== DataSourceBase.prototype[key]) {
                 return;
             }
+            source = transformer;
+            transformer = transformer.next;
+        } while (transformer);
 
-            if (filter) {
-                var listed = (filter.indexOf(key) >= 0);
-                if (!(filter.blacklist ^ listed)) {
-                    return;
-                }
-            }
-
-            var descriptor = Object.getOwnPropertyDescriptor(iface, key);
-            var newdesc = {};
-
-            if (typeof descriptor.get === 'function') {
-                newdesc.get = function() {
-                    if (this.dataSource) {
-                        return this.dataSource[key];
-                    } else {
-                        return descriptor.get();
-                    }
-                };
-            }
-
-            if (typeof descriptor.set === 'function') {
-                newdesc.set = function(arg) {
-                    if (this.dataSource) {
-                        this.dataSource[key](arg);
-                    } else {
-                        descriptor.set(arg);
-                    }
-                };
-            }
-
-            if (typeof descriptor.value === 'function') {
-                newdesc.value = function() {
-                    if (this.dataSource) {
-                        return this.dataSource[key].apply(this.dataSource, arguments);
-                    } else {
-                        return descriptor.value.apply(null, arguments);
-                    }
-                };
-            }
-
-            if (Object.keys(newdesc).length) {
-                var bubbleLayer = getBottomLayer(this);
-
-                // allow possible reconfig/removal later
-                newdesc.enumerable = newdesc.writeable = newdesc.configurable = true;
-
-                Object.defineProperty(bubbleLayer, key, newdesc);
-
-                bubbled += 1;
-            }
-        }, this);
-        return bubbled;
+        return source;
     },
 
     /**
-     * @summary Get object that defines the method.
-     * @dsc Searches the data source for the object that owns the named method.
-     *
-     * This will be somewhere in the prototype chain of the data source.
-     * Searches each member of the data source pipeline from tip to base.
-     *
-     * Useful for overriding or deleting a method.
-     * @param string {methodName}
-     * @returns {object|undefined} The object that owns the found method or `undefined` if not found.
+     * @implements dataModelAPI#install
+     * @see {@link https://fin-hypergrid.github.io/core/doc/dataModelAPI.html#install|install}
      */
-    getOwnerOf: function(methodName) {
-        for (var dataSource = this; dataSource; dataSource = dataSource.dataSource) {
-            if (typeof dataSource[methodName] === 'function') {
-                for (var object = dataSource; object; object = Object.getPrototypeOf(object)) {
-                    if (object.hasOwnProperty(methodName)) {
-                        return object;
-                    }
+    install: function(api, install) {
+        var dataModel = this,
+            keys = getFilteredKeys(api = api || this);
+
+        keys.forEach(function(key) {
+            if (install) {
+                var source = dataModel.needs.call(dataModel, key);
+                if (source) {
+                    source[key] = api[key];
                 }
             }
-        }
+
+            if (!DataSourceBase.prototype[key]) {
+                DataSourceBase.prototype[key] = function() {
+                    if (this.next) {
+                        return this.next[key].apply(this.next, arguments);
+                    }
+                };
+            }
+        });
+
+    },
+
+
+    // SYNONYMS
+
+    isTree: function(x) {
+        return this.isDrillDown(x);
+    },
+
+    getDataIndex: function(y) {
+        return this.getRowIndex(y);
     },
 
 
     // DEBUGGING AIDS
-
-    /**
-     * Get new object with name and index given the name or the index.
-     * @param {string|number} columnOrIndex - Column name or index.
-     * @returns {{name: string, index: number}}
-     */
-    getColumnInfo: function(columnOrIndex) {
-        var name, index, result,
-            schema = this.getSchema();
-
-        if (typeof columnOrIndex === 'number') {
-            index = columnOrIndex;
-            name = schema[index].name;
-        } else {
-            name = columnOrIndex;
-            index = schema.findIndex(function(columnSchema) {
-                return columnSchema.name === name;
-            });
-        }
-
-        if (name && index >= 0) {
-            result = {
-                name: name,
-                index: index
-            };
-        }
-
-        return result;
-    },
-
-    fixIndentForTableDisplay: function(string) {
-        var count = string.search(/\S/);
-        var end = string.substring(count);
-        var result = Array(count + 1).join(this.replaceIndent) + end;
-        return result;
-    },
 
     dump: function(max) {
         max = Math.min(this.getRowCount(), max || Math.max(100, this.getRowCount()));
@@ -176,19 +108,32 @@ DataSourceBase.prototype = {
     }
 };
 
-// Get the oldest ancestor class (prototype) younger than DataSourceBase (or Object)
-function getBottomLayer(prototype) {
-    do {
-        var descendant = prototype;
-        var prototype = Object.getPrototypeOf(descendant);
-    }
-        while (prototype !== DataSourceBase.prototype);
+// api can be array or object
+function getFilteredKeys(api) {
+    var whitelist = api.hasOwnProperty('!!keys') && api['!!keys'],
+        blacklist = api.hasOwnProperty('!keys') && api['!keys'],
+        keys = Array.isArray(api) ? api : Object.keys(api).filter(function(key) {
+            return typeof api[key] === 'function';
+        });
 
-    return descendant;
+    return keys.filter(function(key) {
+        switch (key) {
+            case 'initialize':
+            case 'constructor':
+            case '!!keys':
+            case '!keys':
+                return;
+        }
+
+        return !(
+            whitelist && whitelist.indexOf(key) < 0 ||
+            blacklist && blacklist.indexOf(key) >= 0
+        );
+    });
 }
 
-function failSilently() {}
 
+// DataSourceError
 
 function DataSourceError(message) {
     this.message = message;
@@ -199,5 +144,6 @@ DataSourceError.prototype = Object.create(Error.prototype);
 
 // override error name displayed in console
 DataSourceError.prototype.name = 'DataSourceError';
+
 
 module.exports = DataSourceBase;

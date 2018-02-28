@@ -1,7 +1,7 @@
 {
   "name": "datasaur-base",
   "version": "3.0.0",
-  "description": "Base class for the Hypergrid cascading data source modules.",
+  "description": "Abstract base class for Hypergrid data model modules",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
