@@ -1,13 +1,18 @@
 'use strict';
 
-function DataSourceBase() {}
+function DatasaurBase() {}
 
-DataSourceBase.extend = require('extend-me'); // make `extend`-able
+DatasaurBase.extend = require('extend-me'); // make `extend`-able
 
-DataSourceBase.prototype = {
-    constructor: DataSourceBase.prototype.constructor,
+/**
+ * @classdesc Concatenated data model base class.
+ * @param {Datasaur} [datasaur] - Omit for origin (actual data source). Otherwise, point to source you are transforming.
+ * @param {object} [options] - Not used here at this time. Define properties as needed for custom datasaurs.
+ */
+DatasaurBase.prototype = {
+    constructor: DatasaurBase.prototype.constructor,
 
-    $$CLASS_NAME: 'DataSourceBase',
+    $$CLASS_NAME: 'DatasaurBase',
 
     isNullObject: true,
 
@@ -18,12 +23,12 @@ DataSourceBase.prototype = {
         null: '   ' // indent
     },
 
-    DataSourceError: DataSourceError,
+    DataModelError: DataModelError,
 
-    initialize: function(nextDataSource, options) {
-        if (nextDataSource) {
-            this.next = nextDataSource;
-            this.handlers = nextDataSource.handlers;
+    initialize: function(datasaur, options) {
+        if (datasaur) {
+            this.datasaur = datasaur;
+            this.handlers = datasaur.handlers;
         } else {
             this.handlers = [];
         }
@@ -49,19 +54,19 @@ DataSourceBase.prototype = {
                 }
             }
 
-            if (!DataSourceBase.prototype[key]) {
-                DataSourceBase.prototype[key] = function() {
-                    if (this.next) {
-                        return this.next[key].apply(this.next, arguments);
+            if (!DatasaurBase.prototype[key]) {
+                DatasaurBase.prototype[key] = function() {
+                    if (this.datasaur) {
+                        return this.datasaur[key].apply(this.datasaur, arguments);
                     }
                 };
             }
         });
     },
 
-    dispatchEvent: function(name, detail) {
+    dispatchEvent: function(nameOrEvent) {
         this.handlers.forEach(function(handler) {
-            handler.call(this, name, detail);
+            handler.call(this, nameOrEvent);
         }, this);
     },
 
@@ -116,11 +121,12 @@ DataSourceBase.prototype = {
 
 /**
  * Searches linked list of objects for implementation of `key` anywhere on their prototype chain.
- * The search excludes members of `DataSourceBase.prototype`.
- * @param {object} transformer - Data model transformer list, linked one to the next by `next` property. Falsy `next` means end-of-list.
+ * The search excludes members of `DatasaurBase.prototype`.
+ * @param {object} transformer - Data model transformer list, linked backwards one to the previous one by `datasaur` property.
+ * The first transformer, the actual data source, has null `datasaur`, meaning start-of-list.
  * @param {string} key - Property to search for.
- * @param {boolean} force - Always needed, so always delete other implementations (all implementations found along prototype chains of all transformers) and return last object in list.
- * @returns {undefined|object} - `undefined` means an implementation was found; otherwise returns last object in list.
+ * @param {boolean} force - Always needed, so always return last object in list. All other implementations will be deleted (all implementations found along prototype chains of all transformers).
+ * @returns {undefined|object} - `undefined` means an implementation was found; otherwise returns utlimate datasaur (last datasaur in linked list).
  */
 function needs(transformer, key, force) {
     var source;
@@ -131,12 +137,12 @@ function needs(transformer, key, force) {
                 for (var link = transformer; link && link !== Object.prototype; link = Object.getPrototypeOf(link)) {
                     delete link[key];
                 }
-            } else if (transformer[key] !== DataSourceBase.prototype[key]) {
-                return; // means implementation exists (ignoring previously installed forwwarding catchers in base)
+            } else if (transformer[key] !== DatasaurBase.prototype[key]) {
+                return; // means implementation exists (ignoring previously installed forwarding catchers in base)
             }
         }
         source = transformer;
-        transformer = transformer.next;
+        transformer = transformer.datasaur;
     } while (transformer);
 
     return source;
@@ -174,17 +180,17 @@ function getFilteredKeys(api) {
 }
 
 
-// DataSourceError
+// DataModelError
 
-function DataSourceError(message) {
+function DataModelError(message) {
     this.message = message;
 }
 
 // extend from `Error'
-DataSourceError.prototype = Object.create(Error.prototype);
+DataModelError.prototype = Object.create(Error.prototype);
 
 // override error name displayed in console
-DataSourceError.prototype.name = 'DataSourceError';
+DataModelError.prototype.name = 'DataModelError';
 
 
-module.exports = DataSourceBase;
+module.exports = DatasaurBase;
