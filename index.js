@@ -23,7 +23,7 @@ DatasaurBase.prototype = {
         null: '   ' // indent
     },
 
-    DataModelError: DataModelError,
+    DataError: DataError,
 
     initialize: function(datasaur, options) {
         if (datasaur) {
@@ -41,13 +41,14 @@ DatasaurBase.prototype = {
      * @see {@link https://fin-hypergrid.github.io/core/doc/dataModelAPI.html#install|install}
      */
     install: function(api, options) {
-        var dataModel = this,
-            keys = getFilteredKeys(api);
-
         options = options || {};
 
+        var dataModel = this,
+            keys = getFilteredKeys(api),
+            injectable = options.inject && !Array.isArray(api);
+
         keys.forEach(function(key) {
-            if (options.inject && !Array.isArray(api)) {
+            if (injectable) {
                 var source = needs(dataModel, key, options.force);
                 if (source) {
                     source[key] = api[key];
@@ -78,9 +79,13 @@ DatasaurBase.prototype = {
 
     removeListener: function(handler) {
         var index = this.handlers.indexOf(handler);
-        if (index) {
+        if (index >= 0) {
             delete this.handlers[index];
         }
+    },
+
+    removeAllListeners: function() {
+        this.handlers.length = 0;
     },
 
 
@@ -180,17 +185,17 @@ function getFilteredKeys(api) {
 }
 
 
-// DataModelError
+// DataError
 
-function DataModelError(message) {
+function DataError(message) {
     this.message = message;
 }
 
 // extend from `Error'
-DataModelError.prototype = Object.create(Error.prototype);
+DataError.prototype = Object.create(Error.prototype);
 
 // override error name displayed in console
-DataModelError.prototype.name = 'DataModelError';
+DataError.prototype.name = 'DataError';
 
 
 module.exports = DatasaurBase;
