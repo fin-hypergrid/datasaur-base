@@ -1,19 +1,11 @@
 'use strict';
 
-function DatasaurBase() {}
-
-DatasaurBase.extend = require('extend-me'); // make `extend`-able
-
 /**
  * @classdesc Concatenated data model base class.
- * @param {Datasaur} [datasaur] - Omit for origin (actual data source). Otherwise, point to source you are transforming.
+ * @param {Datasaur} [next] - Omit for origin (actual data source). Otherwise, point to source you are transforming.
  * @param {object} [options] - Not used here at this time. Define properties as needed for custom datasaurs.
  */
-DatasaurBase.prototype = {
-    constructor: DatasaurBase.prototype.constructor,
-
-    $$CLASS_NAME: 'DatasaurBase',
-
+var DatasaurBase = require('extend-me').Base.extend('DatasaurBase', {
     isNullObject: true,
 
     drillDownCharMap: {
@@ -25,12 +17,17 @@ DatasaurBase.prototype = {
 
     DataError: DataError,
 
-    initialize: function(datasaur, options) {
-        if (datasaur) {
-            this.datasaur = datasaur;
-            this.handlers = datasaur.handlers;
+    initialize: function(next, options) {
+        if (next) {
+            this.handlers = next.handlers;
+            this.next = next;
+            while (next) {
+                this.source = next;
+                next = next.next;
+            }
         } else {
             this.handlers = [];
+            this.source = this;
         }
 
         this.install(Object.getPrototypeOf(this));
@@ -49,20 +46,19 @@ DatasaurBase.prototype = {
 
         keys.forEach(function(key) {
             if (injectable) {
-                var source = needs(dataModel, key, options.force);
-                if (source) {
-                    source[key] = api[key];
+                if (!findMethod(dataModel, key, options.force)) {
+                    this.source[key] = api[key];
                 }
             }
 
             if (!DatasaurBase.prototype[key]) {
                 DatasaurBase.prototype[key] = function() {
-                    if (this.datasaur) {
-                        return this.datasaur[key].apply(this.datasaur, arguments);
+                    if (this.next) {
+                        return this.next[key].apply(this.next, arguments);
                     }
                 };
             }
-        });
+        }, this);
     },
 
     dispatchEvent: function(nameOrEvent) {
@@ -89,17 +85,6 @@ DatasaurBase.prototype = {
     },
 
 
-    // SYNONYMS
-
-    isTree: function(x) {
-        return this.isDrillDown(x);
-    },
-
-    getDataIndex: function(y) {
-        return this.getRowIndex(y);
-    },
-
-
     // DEBUGGING AIDS
 
     dump: function(max) {
@@ -122,35 +107,30 @@ DatasaurBase.prototype = {
         }
         console.table(data);
     }
-};
+});
 
 /**
- * Searches linked list of objects for implementation of `key` anywhere on their prototype chain.
- * The search excludes members of `DatasaurBase.prototype`.
- * @param {object} transformer - Data model transformer list, linked backwards one to the previous one by `datasaur` property.
- * The first transformer, the actual data source, has null `datasaur`, meaning start-of-list.
+ * Searches linked list of objects for implementation of property `key` anywhere on their prototype chain.
+ * The search excludes members of `DatasaurBase.prototype` (previously installed forwarding catchers).
+ * @param {object} transformer - Data model transformer list, linked backwards one to the previous one by `next` property.
+ * The first transformer, the actual data source, has null `next`, meaning start-of-list.
  * @param {string} key - Property to search for.
- * @param {boolean} force - Always needed, so always return last object in list. All other implementations will be deleted (all implementations found along prototype chains of all transformers).
- * @returns {undefined|object} - `undefined` means an implementation was found; otherwise returns utlimate datasaur (last datasaur in linked list).
+ * @param {boolean} [remove] - Delete all implementations along prototype chains of all transformers and return falsy.
+ * @returns {undefined|function} - Found method implementation or `undefined` if not found.
  */
-function needs(transformer, key, force) {
-    var source;
-
+function findMethod(transformer, key, remove) {
     do {
         if (transformer[key]) {
-            if (force) {
+            if (remove) {
                 for (var link = transformer; link && link !== Object.prototype; link = Object.getPrototypeOf(link)) {
                     delete link[key];
                 }
             } else if (transformer[key] !== DatasaurBase.prototype[key]) {
-                return; // means implementation exists (ignoring previously installed forwarding catchers in base)
+                return transformer[key];
             }
         }
-        source = transformer;
-        transformer = transformer.datasaur;
+        transformer = transformer.next;
     } while (transformer);
-
-    return source;
 }
 
 var blacklistAlways = ['constructor', 'initialize', '!keys', '!!keys'];
