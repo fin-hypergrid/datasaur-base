@@ -16,11 +16,7 @@
     "url": "https://github.com/fin-hypergrid/datasaur-base/issues"
   },
   "homepage": "https://github.com/fin-hypergrid/datasaur-base#readme",
-  "devDependencies": {
-    "fin-hypergrid-client-module-maker": "^2.2.0",
-    "gulp": "^3.9.1"
-  },
   "dependencies": {
-    "extend-me": "^2.5.0"
+    "extend-me": "^2.7.0"
   }
 }
